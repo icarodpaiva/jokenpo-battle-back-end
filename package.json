@@ -2,11 +2,10 @@
   "name": "jokenpo-battle",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./src/server.ts",
+  "type": "module",
   "scripts": {
-    "start": "nodemon ./src/server.ts",
-    "start:prod": "npm run build && node ./dist/src/server.js",
-    "build": "npx tsc"
+    "start": "nodemon ./src/server.ts"
   },
   "repository": {
     "type": "git",
