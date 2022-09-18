@@ -2,6 +2,8 @@ import express from "express"
 import { createServer } from "http"
 import { Server } from "socket.io"
 
+const PORT = process.env.PORT || 3000
+
 const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
@@ -34,6 +36,10 @@ io.on("connection", socket => {
   })
 })
 
-httpServer.listen(3000, () => {
-  console.log("Application started on port 3000!")
+app.use("/", (_, res) => {
+  res.send('{"title": "jokenpo battle"}')
+})
+
+httpServer.listen(PORT, () => {
+  console.log(`Application started on port ${PORT}!`)
 })
