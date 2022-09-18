@@ -12,18 +12,37 @@ const io = new Server(httpServer, {
   }
 })
 
+//  players
 const players: {
   id: string
   name: string
 }[] = []
 
+const updatePlayersList = () => io.emit("players", players)
+
+// tournment
+const tournment_brackets = players.length / 2
+
+// socket events
 io.on("connection", socket => {
   const { id } = socket
 
   // push player
   socket.on("name", (name: string) => {
     players.push({ id, name })
-    io.emit("players", players)
+
+    let arrays = players.length % 2 === 0 || players.length <= 1 ? 0 : 1
+    let playersInBracket = players.length
+    while (playersInBracket >= 1) {
+      arrays++
+      playersInBracket = playersInBracket / 2
+    }
+
+    console.log("players total", players.length)
+    console.log("playersInBracket", playersInBracket)
+    console.log("arrays", arrays)
+
+    updatePlayersList()
   })
 
   // remove player
@@ -32,8 +51,11 @@ io.on("connection", socket => {
       players.findIndex(player => player.id === id),
       1
     )
-    io.emit("players", players)
+    updatePlayersList()
   })
+
+  // tournment brackets
+  io.emit("tournment_brackets", tournment_brackets)
 })
 
 app.use("/", (_, res) => {
