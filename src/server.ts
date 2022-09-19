@@ -1,7 +1,7 @@
 import express from "express"
 import { createServer } from "http"
 import { Server } from "socket.io"
-import { Players, TourmentBrackets } from "./types/global"
+import { BattleEndSituation, Players, TourmentBrackets } from "./types/global"
 
 const PORT = process.env.PORT || 3000
 
@@ -16,6 +16,7 @@ const io = new Server(httpServer, {
 const players: Players[] = []
 const tournment_brackets: TourmentBrackets[][] = []
 let phase = 0
+let bracketPosition = 0
 
 const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
@@ -42,18 +43,14 @@ io.on("connection", socket => {
 
   // tournment start
   socket.on("tournment_start", () => {
-    // prevent errors with odd quantity players
-    if (players.length % 2 !== 0 && players.length > 1) {
-      tournment_brackets.push([])
+    // create empty objects with correct quantity for each phase tournment
+    for (let i = players.length; i >= 1; i = i / 2) {
+      tournment_brackets.push(Array.from(Array(Math.ceil(i)), () => ({})))
     }
 
-    // create empty objects with correct quantity for each phase tournment
-    let playersInBracket = players.length
-    while (playersInBracket >= 1) {
-      tournment_brackets.push(
-        Array.from(Array(Math.ceil(playersInBracket / 2)), () => ({}))
-      )
-      playersInBracket = playersInBracket / 2
+    // // prevent errors with odd quantity players
+    if (players.length % 2 !== 0 && players.length > 1) {
+      tournment_brackets.push([{}])
     }
 
     // fill in brackets on the phase 0
@@ -61,24 +58,54 @@ io.on("connection", socket => {
       tournment_brackets[phase][i] = { ...players[i], winner: null }
     }
 
+    // randomize players in brackets
+    tournment_brackets[0] = tournment_brackets[0]
+      .map(value => ({ value, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ value }) => value)
+
     updateTournmentBrackets()
   })
 
-  // tournment phases
-  // change phase when the phase is over
-  // if (
-  //   tournment_brackets[phase].every(item => item.winner !== null) &&
-  //   tournment_brackets[phase + 1]
-  // ) {
-  //   phase++
-  // }
+  // battle begin
+  socket.on("battle_begin", () => {
+    const battle_players = {
+      player1: tournment_brackets[phase][bracketPosition],
+      player2: tournment_brackets[phase][bracketPosition + 1]
+    }
 
-  // console.log("tournment_brackets", tournment_brackets)
-  // console.log("phase", phase)
+    io.emit("battle_players", battle_players)
+  })
 
-  // console.log("players total", players.length)
-  // console.log("playersInBracket", playersInBracket)
-  // console.log("tournment_brackets", tournment_brackets)
+  // battle end
+  socket.on("battle_end", (situation?: BattleEndSituation) => {
+    // draw game
+    if (!situation) {
+      return
+    }
+
+    // change the winner propertie
+    tournment_brackets[phase] = tournment_brackets[phase].map(player => {
+      if (player.id === situation.winnerId) {
+        return { ...player, winner: true }
+      }
+      if (player.id === situation.looserId) {
+        return { ...player, winner: false }
+      }
+
+      return player
+    })
+
+    bracketPosition = bracketPosition + 2
+
+    // change phase when all players have winner value
+    if (
+      tournment_brackets[phase].every(item => item.winner !== null) &&
+      tournment_brackets[phase + 1]
+    ) {
+      phase++
+    }
+  })
 })
 
 app.use("/", (_, res) => {

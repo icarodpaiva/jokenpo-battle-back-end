@@ -8,3 +8,8 @@ export interface TourmentBrackets {
   name?: string
   winner?: boolean | null
 }
+
+export interface BattleEndSituation {
+  winnerId: string
+  looserId: string
+}
