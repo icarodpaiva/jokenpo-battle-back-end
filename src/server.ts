@@ -33,8 +33,6 @@ const updateTournmentBrackets = () =>
 io.on("connection", socket => {
   const { id } = socket
 
-  console.log("id", id)
-
   // player connect
   socket.on("player_connect", (name: string) => {
     players.push({ id, name })
@@ -87,22 +85,19 @@ io.on("connection", socket => {
   })
 
   // players moves
-  socket.on(
-    "player_move",
-    ({ isPlayer1, isPlayer2, playerMove }: PlayersMoves) => {
-      if (isPlayer1) {
-        battle_moves.player1 = playerMove
-      }
-
-      if (isPlayer2) {
-        battle_moves.player2 = playerMove
-      }
-
-      if (battle_moves.player1 && battle_moves.player2) {
-        io.emit("battle_moves", battle_moves)
-      }
+  socket.on("player_move", ({ isPlayer1, isPlayer2, move }: PlayersMoves) => {
+    if (isPlayer1) {
+      battle_moves.player1 = move
     }
-  )
+
+    if (isPlayer2) {
+      battle_moves.player2 = move
+    }
+
+    if (battle_moves.player1 && battle_moves.player2) {
+      io.emit("battle_moves", battle_moves)
+    }
+  })
 
   // battle end
   socket.on("battle_end", (situation?: BattleEndSituation) => {
@@ -132,6 +127,8 @@ io.on("connection", socket => {
     ) {
       phase++
     }
+
+    updateTournmentBrackets()
   })
 })
 

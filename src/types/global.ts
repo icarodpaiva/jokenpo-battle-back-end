@@ -12,7 +12,7 @@ export interface TourmentBrackets {
 export interface PlayersMoves {
   isPlayer1: boolean
   isPlayer2: boolean
-  playerMove: string
+  move: string
 }
 
 export interface BattleMoves {
