@@ -1,7 +1,13 @@
 import express from "express"
 import { createServer } from "http"
 import { Server } from "socket.io"
-import { BattleEndSituation, Players, TourmentBrackets } from "./types/global"
+import {
+  Players,
+  TourmentBrackets,
+  PlayersMoves,
+  BattleEndSituation,
+  BattleMoves
+} from "./types/global"
 
 const PORT = process.env.PORT || 3000
 
@@ -17,6 +23,7 @@ const players: Players[] = []
 const tournment_brackets: TourmentBrackets[][] = []
 let phase = 0
 let bracketPosition = 0
+const battle_moves: BattleMoves = {}
 
 const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
@@ -25,6 +32,8 @@ const updateTournmentBrackets = () =>
 // socket events
 io.on("connection", socket => {
   const { id } = socket
+
+  console.log("id", id)
 
   // player connect
   socket.on("player_connect", (name: string) => {
@@ -77,6 +86,24 @@ io.on("connection", socket => {
     io.emit("battle_players", battle_players)
   })
 
+  // players moves
+  socket.on(
+    "player_move",
+    ({ isPlayer1, isPlayer2, playerMove }: PlayersMoves) => {
+      if (isPlayer1) {
+        battle_moves.player1 = playerMove
+      }
+
+      if (isPlayer2) {
+        battle_moves.player2 = playerMove
+      }
+
+      if (battle_moves.player1 && battle_moves.player2) {
+        io.emit("battle_moves", battle_moves)
+      }
+    }
+  )
+
   // battle end
   socket.on("battle_end", (situation?: BattleEndSituation) => {
     // draw game
@@ -100,7 +127,7 @@ io.on("connection", socket => {
 
     // change phase when all players have winner value
     if (
-      tournment_brackets[phase].every(item => item.winner !== null) &&
+      tournment_brackets[phase].every(({ winner }) => winner !== null) &&
       tournment_brackets[phase + 1]
     ) {
       phase++

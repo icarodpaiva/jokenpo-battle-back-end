@@ -9,6 +9,17 @@ export interface TourmentBrackets {
   winner?: boolean | null
 }
 
+export interface PlayersMoves {
+  isPlayer1: boolean
+  isPlayer2: boolean
+  playerMove: string
+}
+
+export interface BattleMoves {
+  player1?: string
+  player2?: string
+}
+
 export interface BattleEndSituation {
   winnerId: string
   looserId: string
