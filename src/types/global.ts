@@ -1,4 +1,4 @@
-export interface Players {
+export interface Player {
   id: string
   name: string
 }
@@ -7,6 +7,11 @@ export interface TourmentBrackets {
   id?: string
   name?: string
   winner?: boolean | null
+}
+
+export interface BattlePlayers {
+  player1?: TourmentBrackets
+  player2?: TourmentBrackets
 }
 
 export interface PlayersMoves {
@@ -20,7 +25,7 @@ export interface BattleMoves {
   player2?: string
 }
 
-export interface BattleEndSituation {
-  winnerId: string
-  looserId: string
+export interface BattleSituation {
+  winner?: TourmentBrackets
+  looser?: TourmentBrackets
 }

@@ -2,11 +2,12 @@ import express from "express"
 import { createServer } from "http"
 import { Server } from "socket.io"
 import {
-  Players,
+  Player,
   TourmentBrackets,
   PlayersMoves,
-  BattleEndSituation,
-  BattleMoves
+  BattleSituation,
+  BattleMoves,
+  BattlePlayers
 } from "./types/global"
 
 const PORT = process.env.PORT || 3000
@@ -19,10 +20,11 @@ const io = new Server(httpServer, {
   }
 })
 
-const players: Players[] = []
+const players: Player[] = []
 const tournment_brackets: TourmentBrackets[][] = []
 let phase = 0
 let bracketPosition = 0
+const battle_players: BattlePlayers = {}
 const battle_moves: BattleMoves = {}
 
 const updatePlayersList = () => io.emit("players", players)
@@ -76,10 +78,8 @@ io.on("connection", socket => {
 
   // battle begin
   socket.on("battle_begin", () => {
-    const battle_players = {
-      player1: tournment_brackets[phase][bracketPosition],
-      player2: tournment_brackets[phase][bracketPosition + 1]
-    }
+    battle_players.player1 = tournment_brackets[phase][bracketPosition]
+    battle_players.player2 = tournment_brackets[phase][bracketPosition + 1]
 
     io.emit("battle_players", battle_players)
   })
@@ -95,40 +95,82 @@ io.on("connection", socket => {
     }
 
     if (battle_moves.player1 && battle_moves.player2) {
-      io.emit("battle_moves", battle_moves)
-    }
-  })
+      const battle_situation: BattleSituation = {}
 
-  // battle end
-  socket.on("battle_end", (situation?: BattleEndSituation) => {
-    // draw game
-    if (!situation) {
-      return
-    }
+      const { player1, player2 } = battle_moves
 
-    // change the winner propertie
-    tournment_brackets[phase] = tournment_brackets[phase].map(player => {
-      if (player.id === situation.winnerId) {
-        return { ...player, winner: true }
-      }
-      if (player.id === situation.looserId) {
-        return { ...player, winner: false }
+      const player1Wins =
+        (player1 === "rock" && player2 === "scissor") ||
+        (player1 === "paper" && player2 === "rock") ||
+        (player1 === "scissor" && player2 === "paper")
+
+      if (player1Wins) {
+        battle_situation.winner = { ...battle_players.player1 }
+        battle_situation.looser = { ...battle_players.player2 }
       }
 
-      return player
-    })
+      const player2Wins =
+        (player2 === "rock" && player1 === "scissor") ||
+        (player2 === "paper" && player1 === "rock") ||
+        (player2 === "scissor" && player1 === "paper")
 
-    bracketPosition = bracketPosition + 2
+      if (player2Wins) {
+        battle_situation.winner = { ...battle_players.player2 }
+        battle_situation.looser = { ...battle_players.player1 }
+      }
 
-    // change phase when all players have winner value
-    if (
-      tournment_brackets[phase].every(({ winner }) => winner !== null) &&
-      tournment_brackets[phase + 1]
-    ) {
-      phase++
+      const drawGame = player1 === player2
+      if (drawGame) {
+        battle_situation.winner = null
+        battle_situation.looser = null
+      }
+
+      if (!drawGame) {
+        bracketPosition = bracketPosition + 2
+      }
+
+      // change the winner propertie on the shame phase
+      tournment_brackets[phase] = tournment_brackets[phase].map(player => {
+        if (player.id === battle_situation.winner?.id) {
+          return { ...player, winner: true }
+        }
+        if (player.id === battle_situation.looser?.id) {
+          return { ...player, winner: false }
+        }
+
+        return player
+      })
+
+      // fill in brackets on the next position
+      const fillInBrackets = () => {
+        console.log("phase", phase)
+
+        for (let i = 0; i < tournment_brackets[phase + 1].length; i++) {
+          if (
+            !tournment_brackets[phase + 1][i].id &&
+            !!battle_situation.winner
+          ) {
+            tournment_brackets[phase + 1][i] = { ...battle_situation.winner }
+          }
+          return
+        }
+      }
+      fillInBrackets()
+
+      // change phase when all players have winner value
+      if (
+        tournment_brackets[phase].every(({ winner }) => winner !== null) &&
+        tournment_brackets[phase + 1]
+      ) {
+        phase++
+      }
+
+      // remove it from backend later
+      setTimeout(() => {
+        updateTournmentBrackets()
+      }, 5000)
+      io.emit("battle_details", { battle_moves, battle_situation })
     }
-
-    updateTournmentBrackets()
   })
 })
 
