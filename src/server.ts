@@ -161,6 +161,7 @@ io.on("connection", socket => {
         tournment_brackets[phase + 1]
       ) {
         phase++
+        bracketPosition = 0
       }
 
       updateTournmentBrackets()
