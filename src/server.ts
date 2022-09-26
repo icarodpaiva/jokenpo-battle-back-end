@@ -24,8 +24,8 @@ const players: Player[] = []
 const tournment_brackets: TourmentBrackets[][] = []
 let phase = 0
 let bracketPosition = 0
-const battle_players: BattlePlayers = {}
-const battle_moves: BattleMoves = {}
+let battle_players: BattlePlayers = {}
+let battle_moves: BattleMoves = {}
 
 const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
@@ -95,7 +95,7 @@ io.on("connection", socket => {
     }
 
     if (battle_moves.player1 && battle_moves.player2) {
-      const battle_situation: BattleSituation = {}
+      let battle_situation: BattleSituation = {}
 
       const { player1, player2 } = battle_moves
 
@@ -143,16 +143,14 @@ io.on("connection", socket => {
 
       // fill in brackets on the next position
       const fillInBrackets = () => {
-        console.log("phase", phase)
-
         for (let i = 0; i < tournment_brackets[phase + 1].length; i++) {
           if (
             !tournment_brackets[phase + 1][i].id &&
             !!battle_situation.winner
           ) {
             tournment_brackets[phase + 1][i] = { ...battle_situation.winner }
+            return
           }
-          return
         }
       }
       fillInBrackets()
@@ -165,11 +163,11 @@ io.on("connection", socket => {
         phase++
       }
 
-      // remove it from backend later
-      setTimeout(() => {
-        updateTournmentBrackets()
-      }, 5000)
+      updateTournmentBrackets()
+
       io.emit("battle_details", { battle_moves, battle_situation })
+      battle_moves = {}
+      battle_situation = {}
     }
   })
 })
