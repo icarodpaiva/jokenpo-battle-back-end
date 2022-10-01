@@ -58,7 +58,10 @@ io.on("connection", socket => {
 
   // player disconnect
   socket.on("disconnect", () => {
-    players.filter(player => player.id !== id)
+    players.splice(
+      players.findIndex(player => player.id === id),
+      1
+    )
     updatePlayersList()
   })
 
