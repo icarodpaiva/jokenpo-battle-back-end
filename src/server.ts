@@ -3,7 +3,6 @@ import { createServer } from "http"
 import { Server } from "socket.io"
 import {
   Player,
-  PlayersMoves,
   BattleSituation,
   BattleMoves,
   BattlePlayers
@@ -20,12 +19,28 @@ const io = new Server(httpServer, {
 })
 
 const players: Player[] = []
-const emptyPlayer = { id: "", name: "", winner: null }
-const tournment_brackets: Player[][] = []
+const emptyPlayer = { id: "", name: "" }
+
 const battle_players: BattlePlayers = { player1: emptyPlayer }
-let phase = 0
+const battle_moves: BattleMoves = { player1: "", player2: "" }
+
+const tournment_brackets: Player[][] = []
+// fill in brackets on the next round
+const fillInBrackets = (playerWinner?: Player) => {
+  for (let i = 0; i < tournment_brackets[round + 1]?.length; i++) {
+    if (!tournment_brackets[round + 1][i].id && !!playerWinner) {
+      tournment_brackets[round + 1][i] = { ...playerWinner, winner: undefined }
+      return
+    }
+  }
+}
+
+let round = 0
 let bracketPosition = 0
-let battle_moves: BattleMoves = {}
+const nextRound = () => {
+  round++
+  bracketPosition = 0
+}
 
 const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
@@ -37,7 +52,7 @@ io.on("connection", socket => {
 
   // player connect
   socket.on("player_connect", (name: string) => {
-    players.push({ id, name, winner: null })
+    players.push({ id, name })
     updatePlayersList()
   })
 
@@ -49,7 +64,7 @@ io.on("connection", socket => {
 
   // tournment start
   socket.on("tournment_start", () => {
-    // create empty objects with correct quantity for each phase tournment
+    // create empty objects with correct quantity for each round tournment
     for (let i = players.length; i >= 1; i = i / 2) {
       tournment_brackets.push(
         Array.from(Array(Math.ceil(i)), () => emptyPlayer)
@@ -61,9 +76,9 @@ io.on("connection", socket => {
       tournment_brackets.push([emptyPlayer])
     }
 
-    // fill in brackets on the phase 0
+    // fill in brackets on the round 0
     for (let i = 0; i < players.length; i++) {
-      tournment_brackets[phase][i] = players[i]
+      tournment_brackets[round][i] = players[i]
     }
 
     // randomize players in brackets
@@ -77,123 +92,93 @@ io.on("connection", socket => {
 
   // next battle
   socket.on("next_battle", () => {
-    battle_players.player1 = tournment_brackets[phase][bracketPosition]
-    battle_players.player2 = tournment_brackets[phase][bracketPosition + 1]
+    battle_players.player1 = tournment_brackets[round][bracketPosition]
+    battle_players.player2 = tournment_brackets[round][bracketPosition + 1]
 
-    // validation for odd phases
-    if (!battle_players?.player2?.id) {
-      // change the winner propertie on the shame phase
-      tournment_brackets[phase][bracketPosition].winner = true
+    // validation for odd rounds
+    if (!battle_players.player2?.id) {
+      tournment_brackets[round][bracketPosition].winner = true
+      fillInBrackets(battle_players.player1)
 
-      // fill in brackets on the next position
-      const fillInBrackets = () => {
-        for (let i = 0; i < tournment_brackets[phase + 1]?.length; i++) {
-          if (!tournment_brackets[phase + 1][i].id) {
-            tournment_brackets[phase + 1][i] = {
-              ...battle_players.player1,
-              winner: null
-            }
-            return
-          }
-        }
-      }
-      fillInBrackets()
-
-      if (tournment_brackets[phase + 1]) {
-        phase++
-        bracketPosition = 0
+      if (tournment_brackets[round + 1]) {
+        nextRound()
       }
     }
 
     io.emit("battle_players", battle_players)
-    io.emit("tournment_brackets", tournment_brackets)
+    updateTournmentBrackets()
   })
 
   // players moves
-  socket.on("player_move", ({ isPlayer1, isPlayer2, move }: PlayersMoves) => {
-    if (isPlayer1) {
+  socket.on("player_move", move => {
+    if (id === battle_players.player1.id) {
       battle_moves.player1 = move
     }
 
-    if (isPlayer2) {
+    if (id === battle_players.player2?.id) {
       battle_moves.player2 = move
     }
 
-    if (battle_moves.player1 && battle_moves.player2) {
-      let battle_situation: BattleSituation = {}
-
+    if (
+      battle_players.player2?.id &&
+      battle_moves.player1 &&
+      battle_moves.player2
+    ) {
+      const battle_situation: BattleSituation = {}
       const { player1, player2 } = battle_moves
 
       const player1Wins =
-        (player1 === "rock" && player2 === "scissor") ||
+        (player1 === "rock" && player2 === "scissors") ||
         (player1 === "paper" && player2 === "rock") ||
-        (player1 === "scissor" && player2 === "paper")
+        (player1 === "scissors" && player2 === "paper")
 
       if (player1Wins) {
-        battle_situation.winner = { ...battle_players.player1 }
-        battle_situation.looser = { ...battle_players.player2 }
+        battle_situation.winner = battle_players.player1
+        battle_situation.looser = battle_players.player2
+
+        tournment_brackets[round][bracketPosition].winner = true
+        tournment_brackets[round][bracketPosition + 1].winner = false
       }
 
       const player2Wins =
-        (player2 === "rock" && player1 === "scissor") ||
+        (player2 === "rock" && player1 === "scissors") ||
         (player2 === "paper" && player1 === "rock") ||
-        (player2 === "scissor" && player1 === "paper")
+        (player2 === "scissors" && player1 === "paper")
 
       if (player2Wins) {
-        battle_situation.winner = { ...battle_players.player2 }
-        battle_situation.looser = { ...battle_players.player1 }
+        battle_situation.winner = battle_players.player2
+        battle_situation.looser = battle_players.player1
+
+        tournment_brackets[round][bracketPosition].winner = false
+        tournment_brackets[round][bracketPosition + 1].winner = true
       }
 
-      const drawGame = player1 === player2
-      if (drawGame) {
-        battle_situation.winner = null
-        battle_situation.looser = null
-      }
+      fillInBrackets(battle_situation.winner)
 
-      if (!drawGame) {
+      if (player1 === player2) {
+        battle_situation.draw = true
+      } else {
         bracketPosition = bracketPosition + 2
       }
 
-      // change the winner propertie on the shame phase
-      tournment_brackets[phase] = tournment_brackets[phase].map(player => {
-        if (player.id === battle_situation.winner?.id) {
-          return { ...player, winner: true }
-        }
-        if (player.id === battle_situation.looser?.id) {
-          return { ...player, winner: false }
-        }
-
-        return player
-      })
-
-      // fill in brackets on the next position
-      const fillInBrackets = () => {
-        for (let i = 0; i < tournment_brackets[phase + 1]?.length; i++) {
-          if (
-            !tournment_brackets[phase + 1][i].id &&
-            !!battle_situation.winner
-          ) {
-            tournment_brackets[phase + 1][i] = { ...battle_situation.winner }
-            return
-          }
-        }
-      }
-      fillInBrackets()
-
-      // change phase when all players have winner value
+      // change round when all players have winner value
       if (
-        tournment_brackets[phase].every(({ winner }) => winner !== null) &&
-        !!tournment_brackets[phase + 1]
+        tournment_brackets[round].every(({ winner }) => winner !== undefined)
       ) {
-        phase++
-        bracketPosition = 0
+        nextRound()
+      }
+
+      if (!tournment_brackets[round + 1]) {
+        setTimeout(() => io.disconnectSockets(), 10000)
       }
 
       updateTournmentBrackets()
-
       io.emit("battle_details", { battle_moves, battle_situation })
-      battle_moves = {}
-      battle_situation = {}
+      battle_moves.player1 = ""
+      battle_moves.player2 = ""
+      battle_situation.winner = undefined
+      battle_situation.looser = undefined
+      battle_situation.draw = undefined
     }
   })
 })
