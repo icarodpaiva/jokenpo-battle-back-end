@@ -18,13 +18,13 @@ const io = new Server(httpServer, {
   }
 })
 
-const players: Player[] = []
+let players: Player[] = []
 const emptyPlayer = { id: "", name: "" }
 
-const battle_players: BattlePlayers = { player1: emptyPlayer }
-const battle_moves: BattleMoves = { player1: "", player2: "" }
+let battle_players: BattlePlayers = { player1: emptyPlayer }
+let battle_moves: BattleMoves = { player1: "", player2: "" }
 
-const tournment_brackets: Player[][] = []
+let tournment_brackets: Player[][] = []
 // fill in brackets on the next round
 const fillInBrackets = (playerWinner?: Player) => {
   for (let i = 0; i < tournment_brackets[round + 1]?.length; i++) {
@@ -46,6 +46,15 @@ const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
   io.emit("tournment_brackets", tournment_brackets)
 
+const restartAll = () => {
+  players = []
+  battle_players = { player1: emptyPlayer }
+  battle_moves = { player1: "", player2: "" }
+  tournment_brackets = []
+  round = 0
+  bracketPosition = 0
+}
+
 // socket events
 io.on("connection", socket => {
   const { id } = socket
@@ -58,11 +67,12 @@ io.on("connection", socket => {
 
   // player disconnect
   socket.on("disconnect", () => {
-    players.splice(
-      players.findIndex(player => player.id === id),
-      1
-    )
+    players = players.filter(player => player.id !== id)
     updatePlayersList()
+
+    if (players.length <= 0) {
+      restartAll()
+    }
   })
 
   // tournment start
@@ -127,7 +137,7 @@ io.on("connection", socket => {
       battle_moves.player1 &&
       battle_moves.player2
     ) {
-      const battle_situation: BattleSituation = {}
+      let battle_situation: BattleSituation = {}
       const { player1, player2 } = battle_moves
 
       const player1Wins =
@@ -172,16 +182,16 @@ io.on("connection", socket => {
       }
 
       if (!tournment_brackets[round + 1]) {
-        setTimeout(() => io.disconnectSockets(), 10000)
+        setTimeout(() => {
+          io.disconnectSockets()
+          restartAll()
+        }, 10000)
       }
 
       updateTournmentBrackets()
       io.emit("battle_details", { battle_moves, battle_situation })
-      battle_moves.player1 = ""
-      battle_moves.player2 = ""
-      battle_situation.winner = undefined
-      battle_situation.looser = undefined
-      battle_situation.draw = undefined
+      battle_moves = { player1: "", player2: "" }
+      battle_situation = {}
     }
   })
 })
