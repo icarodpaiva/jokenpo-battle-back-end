@@ -47,6 +47,7 @@ const updateTournmentBrackets = () =>
   io.emit("tournment_brackets", tournment_brackets)
 
 const restartAll = () => {
+  io.disconnectSockets()
   players = []
   battle_players = { player1: emptyPlayer }
   battle_moves = { player1: "", player2: "" }
@@ -116,6 +117,13 @@ io.on("connection", socket => {
       if (tournment_brackets[round + 1]) {
         nextRound()
       }
+      // end game
+      else {
+        tournment_brackets[round][bracketPosition].winner = true
+        io.emit("champion", battle_players.player1)
+        updateTournmentBrackets()
+        restartAll()
+      }
     }
 
     io.emit("battle_players", battle_players)
@@ -179,13 +187,6 @@ io.on("connection", socket => {
         tournment_brackets[round].every(({ winner }) => winner !== undefined)
       ) {
         nextRound()
-      }
-
-      if (!tournment_brackets[round + 1]) {
-        setTimeout(() => {
-          io.disconnectSockets()
-          restartAll()
-        }, 10000)
       }
 
       updateTournmentBrackets()
