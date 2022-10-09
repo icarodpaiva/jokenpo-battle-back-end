@@ -4,6 +4,7 @@ export interface Player {
   id: string
   name: string
   winner?: boolean
+  disconnected?: boolean
 }
 
 export interface BattlePlayers {

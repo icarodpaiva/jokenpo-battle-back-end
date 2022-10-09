@@ -129,17 +129,18 @@ io.on("connection", socket => {
     updatePlayersList()
 
     // change winner atribbute when disconnected
-    const changeWinner = (roundToSearch: number) => {
+    const changeWinnerProp = (roundToSearch: number) => {
       const index = tournment_brackets?.[roundToSearch]?.findIndex(
         player => player.id === id
       )
 
       if (index > -1) {
         tournment_brackets[roundToSearch][index].winner = false
+        tournment_brackets[roundToSearch][index].disconnected = true
       }
     }
-    changeWinner(round)
-    changeWinner(round + 1)
+    changeWinnerProp(round)
+    changeWinnerProp(round + 1)
 
     // remove player if disconnect during the battle
     const player1Disconnected = battle_players.player1.id === id
