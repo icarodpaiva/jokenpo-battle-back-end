@@ -5,7 +5,9 @@ import {
   Player,
   BattleSituation,
   BattleMoves,
-  BattlePlayers
+  BattlePlayers,
+  DisconnectedInBattle,
+  BattleSituationPlayers
 } from "./types/global"
 
 const PORT = process.env.PORT || 3000
@@ -18,11 +20,47 @@ const io = new Server(httpServer, {
   }
 })
 
+let round = 0
+let playerPositions = {
+  player1: 0,
+  player2: 1
+}
+
+// change round when all players have winner value
+const validateRoundFinished = () => {
+  if (tournment_brackets[round].every(({ winner }) => winner !== undefined)) {
+    round++
+  }
+}
+
 let players: Player[] = []
 const emptyPlayer = { id: "", name: "" }
 
 let battle_players: BattlePlayers = { player1: emptyPlayer }
 let battle_moves: BattleMoves = { player1: "", player2: "" }
+let battle_situation: BattleSituation = {}
+
+// change situations and brackets on the same round
+const fillBattleSituation = ({ winner, looser }: BattleSituationPlayers) => {
+  battle_situation.winner = battle_players[winner]
+  battle_situation.looser = battle_players[looser]
+
+  tournment_brackets[round][playerPositions[winner]].winner = true
+  tournment_brackets[round][playerPositions[looser]].winner = false
+}
+
+// prevent disconnected players and define player positions
+const changePlayersPositions = () => {
+  let positions: number[] = []
+  for (let i = 0; i < tournment_brackets[round].length; i++) {
+    if (tournment_brackets[round][i].winner === undefined) {
+      positions.push(i)
+    }
+  }
+
+  playerPositions.player1 = positions[0] ?? -1
+  playerPositions.player2 = positions[1] ?? -1
+}
 
 let tournment_brackets: Player[][] = []
 // fill in brackets on the next round
@@ -35,16 +73,32 @@ const fillInBrackets = (playerWinner?: Player) => {
   }
 }
 
-let round = 0
-let bracketPosition = 0
-const nextRound = () => {
-  round++
-  bracketPosition = 0
-}
-
 const updatePlayersList = () => io.emit("players", players)
 const updateTournmentBrackets = () =>
   io.emit("tournment_brackets", tournment_brackets)
+const updateBattleDetails = () =>
+  io.emit("battle_details", { battle_moves, battle_situation })
+
+const WO = ({ disconnected, notDisconnected }: DisconnectedInBattle) => {
+  battle_situation.winner = battle_players[notDisconnected]
+  battle_situation.looser = battle_players[disconnected]
+
+  const winnerPosition = playerPositions[notDisconnected]
+
+  if (
+    tournment_brackets[round][winnerPosition] &&
+    tournment_brackets[round][winnerPosition].winner !== false
+  ) {
+    tournment_brackets[round][winnerPosition].winner = true
+    fillInBrackets(battle_situation.winner)
+
+    updateBattleDetails()
+    battle_moves = { player1: "", player2: "" }
+    battle_situation = {}
+
+    validateRoundFinished()
+  }
+}
 
 const restartAll = () => {
   io.disconnectSockets()
@@ -53,7 +107,10 @@ const restartAll = () => {
   battle_moves = { player1: "", player2: "" }
   tournment_brackets = []
   round = 0
-  bracketPosition = 0
+  playerPositions = {
+    player1: 0,
+    player2: 1
+  }
 }
 
 // socket events
@@ -70,6 +127,33 @@ io.on("connection", socket => {
   socket.on("disconnect", () => {
     players = players.filter(player => player.id !== id)
     updatePlayersList()
+
+    // change winner atribbute when disconnected
+    const changeWinner = (roundToSearch: number) => {
+      const index = tournment_brackets?.[roundToSearch]?.findIndex(
+        player => player.id === id
+      )
+
+      if (index > -1) {
+        tournment_brackets[roundToSearch][index].winner = false
+      }
+    }
+    changeWinner(round)
+    changeWinner(round + 1)
+
+    // remove player if disconnect during the battle
+    const player1Disconnected = battle_players.player1.id === id
+    const player2Disconnected = battle_players.player2?.id === id
+
+    if (player2Disconnected) {
+      WO({ disconnected: "player2", notDisconnected: "player1" })
+    }
+
+    if (player1Disconnected) {
+      WO({ disconnected: "player1", notDisconnected: "player2" })
+    }
+
+    updateTournmentBrackets()
 
     if (players.length <= 0) {
       restartAll()
@@ -101,25 +185,27 @@ io.on("connection", socket => {
       .sort((a, b) => a.sort - b.sort)
       .map(({ value }) => value)
 
+    io.emit("tournment_start")
     updateTournmentBrackets()
   })
 
   // next battle
   socket.on("next_battle", () => {
-    battle_players.player1 = tournment_brackets[round][bracketPosition]
-    battle_players.player2 = tournment_brackets[round][bracketPosition + 1]
+    changePlayersPositions()
+
+    battle_players.player1 = tournment_brackets[round][playerPositions.player1]
+    battle_players.player2 = tournment_brackets[round][playerPositions.player2]
 
     // validation for odd rounds
     if (!battle_players.player2?.id) {
-      tournment_brackets[round][bracketPosition].winner = true
+      tournment_brackets[round][playerPositions.player1].winner = true
       fillInBrackets(battle_players.player1)
 
+      // end game validation
       if (tournment_brackets[round + 1]) {
-        nextRound()
-      }
-      // end game
-      else {
-        tournment_brackets[round][bracketPosition].winner = true
+        round++
+      } else {
+        tournment_brackets[round][0].winner = true
         io.emit("champion", battle_players.player1)
         updateTournmentBrackets()
         restartAll()
@@ -145,7 +231,6 @@ io.on("connection", socket => {
       battle_moves.player1 &&
       battle_moves.player2
     ) {
-      let battle_situation: BattleSituation = {}
       const { player1, player2 } = battle_moves
 
       const player1Wins =
@@ -154,11 +239,7 @@ io.on("connection", socket => {
         (player1 === "scissors" && player2 === "paper")
 
       if (player1Wins) {
-        battle_situation.winner = battle_players.player1
-        battle_situation.looser = battle_players.player2
-
-        tournment_brackets[round][bracketPosition].winner = true
-        tournment_brackets[round][bracketPosition + 1].winner = false
+        fillBattleSituation({ winner: "player1", looser: "player2" })
       }
 
       const player2Wins =
@@ -167,32 +248,21 @@ io.on("connection", socket => {
         (player2 === "scissors" && player1 === "paper")
 
       if (player2Wins) {
-        battle_situation.winner = battle_players.player2
-        battle_situation.looser = battle_players.player1
-
-        tournment_brackets[round][bracketPosition].winner = false
-        tournment_brackets[round][bracketPosition + 1].winner = true
+        fillBattleSituation({ winner: "player2", looser: "player1" })
       }
 
       fillInBrackets(battle_situation.winner)
 
       if (player1 === player2) {
         battle_situation.draw = true
-      } else {
-        bracketPosition = bracketPosition + 2
-      }
-
-      // change round when all players have winner value
-      if (
-        tournment_brackets[round].every(({ winner }) => winner !== undefined)
-      ) {
-        nextRound()
       }
 
       updateTournmentBrackets()
-      io.emit("battle_details", { battle_moves, battle_situation })
+      updateBattleDetails()
       battle_moves = { player1: "", player2: "" }
       battle_situation = {}
+
+      validateRoundFinished()
     }
   })
 })
