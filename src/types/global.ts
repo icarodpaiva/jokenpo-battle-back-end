@@ -1,7 +1,10 @@
+type PlayersInBattle = "player1" | "player2"
+
 export interface Player {
   id: string
   name: string
   winner?: boolean
+  disconnected?: boolean
 }
 
 export interface BattlePlayers {
@@ -14,8 +17,18 @@ export interface BattleMoves {
   player2: string
 }
 
+export interface BattleSituationPlayers {
+  winner: PlayersInBattle
+  looser: PlayersInBattle
+}
+
 export interface BattleSituation {
   winner?: Player
   looser?: Player
   draw?: boolean
+}
+
+export interface DisconnectedInBattle {
+  disconnected: PlayersInBattle
+  notDisconnected: PlayersInBattle
 }
