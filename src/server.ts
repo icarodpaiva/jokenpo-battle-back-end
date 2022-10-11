@@ -7,7 +7,9 @@ import {
   BattleMoves,
   BattlePlayers,
   DisconnectedInBattle,
-  BattleSituationPlayers
+  BattleSituationPlayers,
+  Statistics,
+  PushStatistics
 } from "./types/global"
 
 const PORT = process.env.PORT || 3000
@@ -47,6 +49,19 @@ const fillBattleSituation = ({ winner, looser }: BattleSituationPlayers) => {
 
   tournment_brackets[round][playerPositions[winner]].winner = true
   tournment_brackets[round][playerPositions[looser]].winner = false
+
+  // send winner statistics
+  sendStatistics({
+    id: battle_situation.winner?.id,
+    name: battle_situation.winner?.name,
+    situation: "win"
+  })
+  // send looser statistics
+  sendStatistics({
+    id: battle_situation.looser?.id,
+    name: battle_situation.looser?.name,
+    situation: "loose"
+  })
 }
 
 // prevent disconnected players and define player positions
@@ -92,11 +107,54 @@ const WO = ({ disconnected, notDisconnected }: DisconnectedInBattle) => {
     tournment_brackets[round][winnerPosition].winner = true
     fillInBrackets(battle_situation.winner)
 
+    // send winner statistics
+    sendStatistics({
+      id: battle_situation.winner?.id,
+      name: battle_situation.winner?.name,
+      situation: "win"
+    })
+    // send looser statistics
+    sendStatistics({
+      id: battle_situation.looser?.id,
+      name: battle_situation.looser?.name,
+      situation: "loose"
+    })
+
     updateBattleDetails()
     battle_moves = { player1: "", player2: "" }
     battle_situation = {}
 
     validateRoundFinished()
+  }
+}
+
+let statistics: Statistics[] = []
+const sendStatistics = ({ id, name, situation }: PushStatistics) => {
+  if (!id || !name) {
+    return
+  }
+
+  const indexPlayer = statistics.findIndex(player => player.id === id)
+
+  const initialStatistic = {
+    id,
+    name,
+    matches: 1,
+    win: 0,
+    loose: 0,
+    draw: 0
+  }
+
+  // set a new player statistic
+  if (indexPlayer === -1) {
+    const newStatistc = { ...initialStatistic }
+    newStatistc[situation]++
+    statistics.push(newStatistc)
+  }
+  // edit a setted player statistic
+  else {
+    statistics[indexPlayer].matches++
+    statistics[indexPlayer][situation]++
   }
 }
 
@@ -111,6 +169,7 @@ const restartAll = () => {
     player1: 0,
     player2: 1
   }
+  statistics = []
 }
 
 // socket events
@@ -208,6 +267,7 @@ io.on("connection", socket => {
       } else {
         tournment_brackets[round][0].winner = true
         io.emit("champion", battle_players.player1)
+        io.emit("statistics", statistics)
         updateTournmentBrackets()
         restartAll()
       }
@@ -256,6 +316,19 @@ io.on("connection", socket => {
 
       if (player1 === player2) {
         battle_situation.draw = true
+
+        // send draw statistics
+        sendStatistics({
+          id: battle_players.player1.id,
+          name: battle_players.player1.name,
+          situation: "draw"
+        })
+        // send draw statistics
+        sendStatistics({
+          id: battle_players.player2.id,
+          name: battle_players.player2.name,
+          situation: "draw"
+        })
       }
 
       updateTournmentBrackets()
