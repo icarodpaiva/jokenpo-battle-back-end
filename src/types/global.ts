@@ -32,3 +32,18 @@ export interface DisconnectedInBattle {
   disconnected: PlayersInBattle
   notDisconnected: PlayersInBattle
 }
+
+export interface Statistics {
+  id: string
+  name: string
+  matches: number
+  win: number
+  loose: number
+  draw: number
+}
+
+export interface PushStatistics {
+  id?: string
+  name?: string
+  situation: "win" | "loose" | "draw"
+}
