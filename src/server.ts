@@ -227,11 +227,11 @@ io.on("connection", socket => {
       tournment_brackets.push(
         Array.from(Array(Math.ceil(i)), () => emptyPlayer)
       )
-    }
 
-    // // prevent errors with odd quantity players
-    if (players.length % 2 !== 0 && players.length > 1) {
-      tournment_brackets.push([emptyPlayer])
+      // prevent errors with odd quantity players
+      if (i > 1 && i / 2 < 1 && players.length > 1) {
+        tournment_brackets.push([emptyPlayer])
+      }
     }
 
     // fill in brackets on the round 0
