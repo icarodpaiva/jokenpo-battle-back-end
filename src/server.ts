@@ -101,8 +101,8 @@ const WO = ({ disconnected, notDisconnected }: DisconnectedInBattle) => {
   const winnerPosition = playerPositions[notDisconnected]
 
   if (
-    tournment_brackets[round][winnerPosition] &&
-    tournment_brackets[round][winnerPosition].winner !== false
+    tournment_brackets[round]?.[winnerPosition] &&
+    tournment_brackets[round]?.[winnerPosition].winner !== false
   ) {
     tournment_brackets[round][winnerPosition].winner = true
     fillInBrackets(battle_situation.winner)
