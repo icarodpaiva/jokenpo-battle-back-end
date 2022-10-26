@@ -38,17 +38,23 @@ const validateRoundFinished = () => {
 let players: Player[] = []
 const emptyPlayer = { id: "", name: "" }
 
-let battle_players: BattlePlayers = { player1: emptyPlayer }
+let battle_players: BattlePlayers = {
+  player1: emptyPlayer,
+  player2: emptyPlayer
+}
 let battle_moves: BattleMoves = { player1: "", player2: "" }
 let battle_situation: BattleSituation = {}
 
 // change situations and brackets on the same round
-const fillBattleSituation = ({ winner, looser }: BattleSituationPlayers) => {
-  battle_situation.winner = battle_players[winner]
-  battle_situation.looser = battle_players[looser]
+const fillBattleSituation = ({
+  winner: { player: wPlayer, move: wMove },
+  looser: { player: lPlayer, move: lMove }
+}: BattleSituationPlayers) => {
+  battle_situation.winner = { ...battle_players[wPlayer], move: wMove }
+  battle_situation.looser = { ...battle_players[lPlayer], move: lMove }
 
-  tournment_brackets[round][playerPositions[winner]].winner = true
-  tournment_brackets[round][playerPositions[looser]].winner = false
+  tournment_brackets[round][playerPositions[wPlayer]].winner = true
+  tournment_brackets[round][playerPositions[lPlayer]].winner = false
 
   // send winner statistics
   sendStatistics({
@@ -161,7 +167,7 @@ const sendStatistics = ({ id, name, situation }: PushStatistics) => {
 const restartAll = () => {
   io.disconnectSockets()
   players = []
-  battle_players = { player1: emptyPlayer }
+  battle_players = { player1: emptyPlayer, player2: emptyPlayer }
   battle_moves = { player1: "", player2: "" }
   tournment_brackets = []
   round = 0
@@ -300,7 +306,10 @@ io.on("connection", socket => {
         (player1 === "scissors" && player2 === "paper")
 
       if (player1Wins) {
-        fillBattleSituation({ winner: "player1", looser: "player2" })
+        fillBattleSituation({
+          winner: { player: "player1", move: player1 },
+          looser: { player: "player2", move: player2 }
+        })
       }
 
       const player2Wins =
@@ -309,13 +318,16 @@ io.on("connection", socket => {
         (player2 === "scissors" && player1 === "paper")
 
       if (player2Wins) {
-        fillBattleSituation({ winner: "player2", looser: "player1" })
+        fillBattleSituation({
+          winner: { player: "player2", move: player2 },
+          looser: { player: "player1", move: player1 }
+        })
       }
 
       fillInBrackets(battle_situation.winner)
 
       if (player1 === player2) {
-        battle_situation.draw = true
+        battle_situation.draw = { draw: true, move }
 
         // send draw statistics
         sendStatistics({

@@ -9,7 +9,7 @@ export interface Player {
 
 export interface BattlePlayers {
   player1: Player
-  player2?: Player
+  player2: Player
 }
 
 export interface BattleMoves {
@@ -18,14 +18,25 @@ export interface BattleMoves {
 }
 
 export interface BattleSituationPlayers {
-  winner: PlayersInBattle
-  looser: PlayersInBattle
+  winner: {
+    player: PlayersInBattle
+    move: Moves
+  }
+  looser: {
+    player: PlayersInBattle
+    move: Moves
+  }
 }
 
+export type Moves = "rock" | "paper" | "scissors"
+
 export interface BattleSituation {
-  winner?: Player
-  looser?: Player
-  draw?: boolean
+  winner?: Player & { move?: Moves }
+  looser?: Player & { move?: Moves }
+  draw?: {
+    draw: boolean
+    move: Moves
+  }
 }
 
 export interface DisconnectedInBattle {
