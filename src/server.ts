@@ -73,7 +73,7 @@ const fillBattleSituation = ({
 // prevent disconnected players and define player positions
 const changePlayersPositions = () => {
   let positions: number[] = []
-  for (let i = 0; i < tournment_brackets[round].length; i++) {
+  for (let i = 0; i < tournment_brackets?.[round]?.length; i++) {
     if (tournment_brackets[round][i].winner === undefined) {
       positions.push(i)
     }
