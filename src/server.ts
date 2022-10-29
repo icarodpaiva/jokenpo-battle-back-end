@@ -86,11 +86,21 @@ const changePlayersPositions = () => {
 let tournment_brackets: Player[][] = []
 // fill in brackets on the next round
 const fillInBrackets = (playerWinner?: Player) => {
-  for (let i = 0; i < tournment_brackets[round + 1]?.length; i++) {
-    if (!tournment_brackets[round + 1][i].id && !!playerWinner) {
-      tournment_brackets[round + 1][i] = { ...playerWinner, winner: undefined }
-      return
-    }
+  if (!playerWinner || !tournment_brackets?.[round + 1]) {
+    return
+  }
+
+  const emptyPositions = tournment_brackets[round + 1]
+    .map(({ id }, index) => (id ? null : index))
+    .filter(position => position !== null) as number[]
+
+  const randomPosition =
+    emptyPositions[Math.floor(Math.random() * emptyPositions.length)]
+
+  // set the winner in random bracket on next round
+  tournment_brackets[round + 1][randomPosition] = {
+    ...playerWinner,
+    winner: undefined
   }
 }
 
