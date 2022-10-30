@@ -1,6 +1,7 @@
 import express from "express"
 import { createServer } from "http"
 import { Server } from "socket.io"
+import { sortStatistics } from "./statistics/sortStatistics"
 import {
   Player,
   BattleSituation,
@@ -282,8 +283,11 @@ io.on("connection", socket => {
         round++
       } else {
         tournment_brackets[round][0].winner = true
-        io.emit("champion", battle_players.player1)
-        io.emit("statistics", statistics)
+
+        const champion = battle_players.player1
+        io.emit("champion", champion)
+        io.emit("statistics", sortStatistics(statistics, champion))
+
         updateTournmentBrackets()
         restartAll()
       }
